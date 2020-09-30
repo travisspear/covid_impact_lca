@@ -1,0 +1,77 @@
+﻿Variable,Type,Description,Options
+EGENDER,Demographic,Gender,"1) Male
+2) Female"
+RHISPANIC,Demographic,Hispanic origin,"1) No, not of Hispanic, Latino, or Spanish origin
+2) Yes, of Hispanic, Latino, or Spanish origin"
+RRACE,Demographic,Race,"1) White, Alone
+2) Black, Alone
+3) Asian, Alone
+4) Any other race alone, or race in combination"
+INCOME,Demographic,Total household income (before taxes),"1) Less than $25,000  
+2) $25,000 - $34,999  
+3) $35,000 - $49,999   
+4) $50,000 - $74,999   
+5) $75,000 - $99,999   
+6) $100,000 - $149,999   
+7) $150,000 - $199,999
+8) $200,000 and above
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+WRKLOSS,Professional Impact,Recent household job loss,"1) Yes
+2) No
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+CURFOODSUF,Food Security,Household food sufficiency for last 7 days,"1) Enough of the kinds of food (I/we) wanted to eat
+2) Enough, but not always the kinds of food (I/we) wanted to eat
+3) Sometimes not enough to eat
+4) Often not enough to eat
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+CHILDFOOD,Food Security,Children not eating enough because we couldn't afford enough food,"1) Often true
+2) Sometimes true
+3) Never true
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+FOODCONF,Food Security,Food sufficiency confidence in next four weeks,"1) Not at all confident
+2) Somewhat confident
+3) Moderately confident
+4) Very confident
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+HLTHSTATUS,Health Impact,General health status,"1) Excellent
+2) Very good
+3) Good
+4) Fair
+5) Poor
+-99) Question seen but category not selected
+-88) Missing / Did not report"
+ANXIOUS,Mental Health Impact,Frequency of anxiety over previous 7 days,"1) Not at all,
+2) Several days,
+3) More than half the days,
+4) Nearly every day,
+-99) Question seen but category not selected,
+-88) Missing / Did not report"
+INTEREST,Mental Health Impact,Frequency of having little interest in things over previous 7 days,"1) Not at all,
+2) Several days,
+3) More than half the days,
+4) Nearly every day,
+-99) Question seen but category not selected,
+-88) Missing / Did not report"
+DOWN,Mental Health Impact,Frequency of feeling depressed over previous 7 days,"1) Not at all,
+2) Several days,
+3) More than half the days,
+4) Nearly every day,
+-99) Question seen but category not selected,
+-88) Missing / Did not report"
+MORTLMTH,Housing Impact,Pay last month's mortgage or rent on time,"1) Yes,
+2) No,
+3) Payment was deferred,
+-99) Question seen but category not selected,
+-88) Missing / Did not report"
+MORTCONF,Housing Impact,Confidence in ability to pay mortgage or rent next month,"1) No confidence
+2) Slight confidence
+3) Moderate confidence
+4) High confidence
+5) Payment is/will be deferred
+-99) Question seen but category not selected
+-88) Missing / Did not report"

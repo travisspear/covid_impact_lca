@@ -1,0 +1,387 @@
+---
+title: "Latent Class Analysis as a Method for Identifying Food Insecure Subgroups in the 2019 Coronavirus Pandemic"
+author: "Travis Spear"
+date: "8/12/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, error=FALSE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(flextable)
+library(officer)
+library(xlsx)
+library(poLCA)
+library(viridisLite)
+
+
+```
+
+
+```{r data_loading}
+raw <- read.csv("./data/week12.csv", stringsAsFactors = FALSE)
+
+```
+
+```{r functions}
+entropy <- function(p) sum(-p * log(p))
+model_entropy <- function(model){
+  
+  error_prior <- entropy(model$P) # Class proportions
+  error_post <- mean(apply(model$posterior, 1, entropy))
+  R2_entropy <- (error_prior - error_post) / error_prior
+  
+  return(R2_entropy)
+  
+  
+}
+
+table_theme <- function(flextable){
+  flextable %>%
+    color(part="all", color="black") %>%
+    fontsize(size = 8, part = "all") %>%
+    fontsize(size = 9, part = "header")
+    
+}
+  
+```
+
+```{r lca_trials, cache=TRUE}
+
+set.seed(1)
+
+input_cols <- c(
+  "EGENDER", "RHISPANIC", "RRACE", "INCOME",
+  "WRKLOSS",
+  "CURFOODSUF", "CHILDFOOD", "FOODCONF",
+  "HLTHSTATUS",
+  "ANXIOUS", "INTEREST", "DOWN",
+  "MORTLMTH",
+  "MORTCONF"
+)
+
+dat <- raw %>%
+  filter(THHLD_NUMKID > 0) %>%
+  filter(EST_ST == 08) %>%
+  dplyr::select(all_of(input_cols))
+
+dat_clean <- dat %>%
+  apply(2, function(x){
+    ifelse(x < 0, NA, x)
+  }) %>%
+  as.data.frame() %>%
+  mutate_all(as.factor) 
+
+f <- as.formula(paste("cbind(", paste0(names(dat_clean), collapse = ","),")~1"))
+
+
+lca_metrics <- lapply(2:10, function(i){
+  lc <- poLCA(f, dat_clean, nclass=i, maxiter=500,
+              tol=10000, na.rm=FALSE,
+              nrep=10, verbose=FALSE, calc.se=TRUE)
+  
+
+  
+  out <- tibble(
+    "Classes" = i,
+    # "residual.df" = lc$resid.df,
+    "AIC" = lc$aic,
+    "BIC" = lc$bic,
+    "Chi-Square" = lc$Chisq,
+    "Likelihood Ratio" = lc$Gsq,
+    "Entropy" = model_entropy(lc),
+    "Minimum Class Size" = min(lc$predclass %>% table)
+  )
+  
+  return(out)
+  
+})
+
+
+```
+
+# Abstract
+The 2019 Coronavirus pandemic has caused widespread damage to the United States where, as of August 2020, there have been five million confirmed cases of the virus and over 170,000 deaths. Although Colorado has performed better than many states with respect to slowing disease spread, there are still numerous individuals who have been affected physically, mentally, and financially by the crisis. The goal of this study was to utilize Latent Class Analysis (LCA) as a method for identifying subgroups of individuals based on the level of impact the virus has had on their well being in five major impact categories. The current cross sectional study includes 626 survey respondents consisting of Colorado households with children collected by the United States Census Bureau. Pandemic impact was measured based on survey responses regarding their physical, mental, and financial well being as well as their food security and housing security during the pandemic. The latent class analysis demonstrated that there are distinct clusters of people which can be identified based on their specific pattern of pandemic related struggles. 
+
+
+# Introduction
+
+# Methods
+## Data Sources and Definitions
+
+The data used in this study was collected from the United States Census Bureau’s “Household Pulse Survey” which has collected 12 weeks of survey responses spanning from April 23, 2020 to July 21, 2020. In this study, only the 12th week, July 16 - July 21, is used. Several restrictions on the data were imposed to standardize geographic and stress related features of the observations. First, the data was limited to responses from Colorado to eliminate any confounding factors such as current status of viral transmission which has varied between states. Second, only responses from households with children under the age of 18 were included because the requirement to provide for a non-working individual was expected to be a stressor significant enough to impact the results.  
+After applying the filtering criteria, the final data set contained 626 observations (survey respondents) reporting 14 variables that had minimal missing values and were believed to represent multiple factors of life that could be impacted by the pandemic (Table 1). The variables were categorized by their type of impact - Food Security, Health Impact, Housing Security, Mental Health Impact, and Professional Impact (Table 1).
+
+
+```{r variable_table}
+
+data_dict <- read.csv("./data/data_dictionary.csv", fileEncoding="UTF-8-BOM")
+
+dict_table <- data_dict %>%
+  mutate(Options = str_split(Options, "\n")) %>%
+  unnest(Options)
+
+dict_table %>%
+  dplyr::select(-Options) %>%
+  distinct() %>%
+  flextable %>%
+  theme_alafoli() %>%
+  table_theme %>%
+  autofit()
+
+```
+
+
+
+All variables utilized in this study were categorical and the majority had more than two response options. Distribution of responses varied between the survey items with some items being dominated by a single response category. Notably, the racial demographics were heavily skewed such that the population is predominantly white and non-hispanic. Graphical and tabular representations of all 14 variables’ response distributions, including full definitions of the responses, can be found in Figure 1, Appendix A, and Appendix B.
+
+
+```{r response_distributions, dpi=300}
+
+dat_clean %>%
+  gather(key="key", value="val") %>%
+  filter(!is.na(val)) %>%
+  ggplot() + 
+  geom_bar(aes(x = key, fill=val), position = "fill", color = "black") +
+  xlab(NULL) +
+  ylab("Proportion of Response") +
+  ggtitle("Proportion of Responses by Variable") +
+  labs(fill = "Response Value") +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "bottom", 
+        plot.title = element_text(hjust=.5)) +
+  scale_fill_viridis_d(direction = -1) +
+  scale_y_continuous(expand = c(0.005, 0.005)) 
+
+```
+
+
+## Latent Class Analysis
+Latent Class Analysis is a statistical technique used to identify unmeasured, or latent, groups within a set of observations by finding patterns in categorical input variables. This method is appropriate to use when hidden, homogeneous, subgroups are suspected in a population which, for the current study, could appear in ways such as: [1] low vs. medium vs. high degrees of pandemic impact, financial vs. mental impact, and many others.  
+
+Similar to traditional clustering techniques, a Latent Class Analysis consists of searching for an optimal number of clusters which was accomplished here by fitting multiple models with varied numbers of latent classes. In this study the number of classes, k, ranged from 2 to 10 and each model was interpreted based on four primary metrics - Akaike information criterion (AIC), Bayesian information criterion (BIC), entropy, and minimum class size. The use of multiple model metrics relieves concerns raised by other researchers contesting that the use of AIC or Entropy alone may not consistently select an appropriate model. Finding the best model consists of balancing a low relative AIC and BIC with high entropy and class sizes that are large enough to be generalizable.  
+
+Entropy was the primary evaluation metric and can be described as a single number summary of classification uncertainty. This value will range from 0 to 1 where 1 indicates a perfect model which, for LCA, means every observation perfectly fits into one and only one latent class.  
+
+All data collection, cleaning, modeling, and evaluation was done using the R statistical language version 3.6.35 and the poLCA (Polytomous Variable Latent Class Analysis) package version 1.4.1.  
+
+
+```{r lca_results} 
+
+metrics_df <- lca_metrics %>%
+  bind_rows
+
+```
+
+```{r best_lca, cache=TRUE}
+set.seed(1)
+
+lc <- poLCA(f, dat_clean, nclass=4, maxiter=500,
+            tol=10000, na.rm=FALSE,
+            nrep=10, verbose=FALSE, calc.se=TRUE)
+
+
+```
+
+```{r best_lca_table}
+var_n <- dat_clean %>%
+  gather("Variable", "value") %>%
+  filter(!is.na(value)) %>%
+  group_by(Variable) %>%
+  summarise(n = n())
+
+
+lca_probs <- lapply(1:length(lc$probs), function(i){
+  
+  varname <- names(lc$probs)[i]
+  
+  lc$probs[i] %>%
+    as.data.frame() %>%
+    t %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "Value") %>% 
+    mutate(Variable = varname)
+  
+}) %>%
+  bind_rows() %>%
+  separate(Value, c("Variable", "Value"), sep="\\.") %>%
+  mutate_if(is.numeric, ~round(., 2)) %>%
+  left_join(var_n, by="Variable") %>%
+  mutate_if(is.numeric, ~round(.*n, 0)) %>%
+  dplyr::select(-n) %>%
+  group_by(Variable) %>%
+  mutate(ChiSq = round(chisq.test(data.frame(`class 1: `, `class 2: `, `class 3: `,`class 4: `))$statistic, 2)) %>%
+  mutate(p = chisq.test(data.frame(`class 1: `, `class 2: `, `class 3: `,`class 4: `))$p.value) %>%
+  ungroup()
+
+
+
+```
+
+# Results
+
+The latent class models fit on the 626 observations and 14 variables ranged from 2 to 10 classes. The 4-class model resulted in the highest entropy, 0.674, the third lowest AIC, and the third lowest BIC (Table 2, Figure 2). Those metrics, along with a minimum class size exceeding 5% of the population, were used to determine that 4 classes were most appropriate for modeling the data.  
+
+The distribution of categorical responses exhibited by each latent class was tested for significance using a Chi-Square test with an alpha threshold of 0.05. All 14 variables were below the alpha threshold which suggests that the LCA model appropriately found clusters that are significantly different from each other (Appendix C). Figures 3 and 4 present two options for a graphical display of survey response distributions separated by latent class.  
+
+
+```{r metrics_table}
+
+metrics_df %>%
+  flextable %>%
+  theme_alafoli() %>%
+  table_theme %>%
+  bold(i = ~ Entropy ==max(Entropy), j = "Entropy") %>%
+  bold(i = ~ AIC ==min(AIC), j = "AIC") %>%
+  bold(i = ~ BIC ==min(BIC), j = "BIC") %>%
+  autofit()
+
+
+```
+
+
+```{r metrics_graphs, dpi=300, fig.height=5, fig.width=8}
+
+metrics_graphdata <- metrics_df %>%
+  dplyr::select(Classes, "Relative AIC"=AIC, "Relative BIC"=BIC) %>%
+  gather("key", "value", -Classes) %>%
+  group_by(key) %>%
+  mutate(value = value / max(value)) %>%
+  bind_rows(metrics_df %>%
+          dplyr::select(Classes, Entropy) %>%
+          gather("key", "value", -Classes))
+
+bestmetrics_graphdata <- metrics_graphdata %>%
+  filter(key %in% c('Relative AIC', 'Relative BIC')) %>%
+  arrange(value) %>%
+  slice(1:3) %>%
+  rbind(metrics_graphdata %>%
+  filter(key %in% c('Entropy')) %>%
+  arrange(-value) %>%
+  slice(1:3))
+
+ggplot() + 
+  geom_line(data = metrics_graphdata, aes(x = Classes, y = value, color = key), size = 1.2) +
+  geom_point(data = metrics_graphdata, aes(x = Classes, y = value, color = key), size = 2) + 
+  geom_point(data = bestmetrics_graphdata, aes(x = Classes, y = value, fill = key),  color = "black", size = 5, pch=23) +
+  xlab("Latent Classes") +
+  ylab("Value") +
+  ggtitle("Primary Metrics for LCA Evaluation") +
+  labs(fill = NULL) +
+  theme_minimal() +
+  theme(legend.position = "bottom", 
+        plot.title = element_text(hjust=.5)) +
+  scale_fill_viridis_d(direction = 1) +
+  scale_color_viridis_d(direction = 1, guide=FALSE) +
+  scale_y_continuous(expand = c(0.005, 0.005), limits = c(0,1))
+
+
+
+
+```
+
+
+A full accounting of survey responses and their difference is presented in Appendix C with highlighted cells indicating defining features of the group. Demographically, classes 2 and 3 were predominantly female whereas class 4 was a high-income and predominantly non-Hispanic group. Classes 1, 2, and 3 all share some form of food insecurity with the most severe effect being noticed in class 1 which expressed concerns about having enough food to feed themselves and their children. Class 1 also has the lowest confidence in their ability to find food in the coming weeks. Classes 1, 2, and 3 share a similar amount of physical and mental health problems with the majority of anxiety and depression being exhibited by classes 1 and 3. There was some degree of work loss in all classes but class 4 was notably lower in this category. Finally, housing issues were found to be most severe in class 1, with some less severe responses noted in class 2. Overall, class 4 was found to be minimally affected by the pandemic, Classes 2 and 3 had specific concerns about food and housing security respectively, and class 1 was impacted throughout all categories investigated. Researcher defined labels, along with the defining class features, are found in table 3.
+
+
+
+```{r lca_plot, fig.height=9, fig.width=15, dpi=300}
+
+plot(lc)
+
+```
+
+INSERT TABLE HERE ###
+
+```{r}
+
+dat_clean %>%
+  mutate(Class = lc$predclass) %>%
+  gather(key="key", value="val", -Class) %>%
+  filter(!is.na(val)) %>%
+  ggplot() + 
+  geom_bar(aes(x = Class, fill=val), position = "fill", color = "black") +
+  xlab(NULL) +
+  ylab("Proportion of Response") +
+  ggtitle("Proportion of Responses by Variable") +
+  labs(fill = "Response Value") +
+  coord_flip() +
+  facet_wrap(.~key, nrow = 2) +
+  theme_minimal() +
+  theme(legend.position = "bottom", 
+        plot.title = element_text(hjust=.5)) +
+  scale_fill_viridis_d(direction = -1) +
+  scale_y_continuous(expand = c(0.005, 0.005))
+
+```
+
+# Discussion
+The performance metrics of the four class Latent Class Analysis model demonstrate that there are clusters of Colorado households with children that are identifiable based on their level of impact by COVID-19. This information could be used to influence community outreach resource delegation and disaster policy reform so that no individual in unduly affected by disasters that are out of their control. Specifically, food bank resources and housing assistance were dividing factors in this analysis. Looking at Class 2, these individuals did not report a high incidence of going hungry but did have anxiety paired with uncertainty of securing food for the future. For this group, it may be sufficient to provide information on local food banks to have a positive impact on their outlook during the pandemic. Now that LCA has proven its capability to identify clusters, this area of research may benefit from future work in observing how clusters evolve as a pandemic continues to implement policy changes that make all clusters into lower impacted groups. 
+
+
+# References
+
+1 https://www.census.gov/programs-surveys/household-pulse-survey/datasets.html
+2 Tein, Coxe, Cham. Statistical Power to Detect the Correct Number of Classes in Latent Profile Analysis. Struct Equ Modeling. 2013 October 1; 20(4): 640–657.
+3 Ramaswamy, V., DeSarbo, W. S., Reibstein, D. J., & Robinson, W. T. (1993). An empirical pooling approach for estimating marketing mix elasticities with PIMS data. Marketing Science, 12(1), 103−124.
+4 https://www.statmodel.com/download/Masyn_2013.pdf
+5 https://www.r-project.org/ 
+6 https://cran.r-project.org/web/packages/poLCA/index.html
+
+
+
+
+# Appendix
+## Appendix A - Data Dictionary
+```{r data_dictionary_full}
+
+dict_table %>%
+  distinct() %>%
+  dplyr::select(Type, everything()) %>%
+  flextable() %>%
+  merge_v() %>%
+  theme_alafoli() %>%
+  table_theme %>%
+  autofit()
+
+```
+
+## Appendix B - Survey Responses, Tabular View
+```{r baseline_characteristics}
+
+baseline_table <- dat_clean %>%
+  gather(key="Categorical Variable", value="Value") %>%
+  filter(!is.na(Value)) %>%
+  group_by(`Categorical Variable`) %>%
+  mutate(n_var = n()) %>%
+  ungroup() %>%
+  mutate(`Categorical Variable` = paste0(`Categorical Variable`, "\n(n=", n_var, ")")) %>%
+  group_by(`Categorical Variable`, Value) %>%
+  summarise(`Absolute Frequency` = n(),
+            `Relative Frequency` = round(n() / unique(n_var) * 100, 2)
+  )
+
+
+baseline_table %>%
+  flextable() %>%
+  theme_alafoli() %>%
+  table_theme %>%
+  merge_v() %>%
+  autofit() 
+
+
+```
+
+## Appendix C - Survey Items and Response Differences Between Latent Classes
+```{r}
+
+
+lca_probs %>%
+  flextable() %>%
+  theme_alafoli() %>%
+  table_theme %>%
+  merge_v(j=~Variable+ChiSq+p) 
+
+
+```
